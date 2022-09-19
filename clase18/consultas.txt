@@ -1,0 +1,105 @@
+use ecommerce
+db.createCollection("productos")
+db.createCollection("mensajes")
+
+1)
+
+db.productos.insertMany([
+	{title: 'Escuadra', price: 150},
+	{title: 'Regla', price: 200},
+	{title: 'Lapicera', price: 300},
+	{title: 'Lapiz', price: 145},
+	{title: 'Goma', price: 100},
+	{title: 'Calculadora', price: 4100},
+	{title: 'Cuaderno', price: 1500},
+	{title: 'Carpeta', price: 2500},
+	{title: 'Resaltador', price: 160},
+	{title: 'Marcador', price: 170}
+])
+db.mensajes.insertMany([
+	{author: 'Juan', text: 'hola!'},
+	{author: 'Pedro', text: 'como estas?'},
+	{author: 'Laura', text: 'buenas tardes!'},
+	{author: 'Pedro', text: 'hola Laura!'},
+	{author: 'Juan', text: 'bien y ustedes?'},
+	{author: 'Pedro', text: 'bien'},
+	{author: 'Laura', text: 'nos vemos mas tarde'},
+	{author: 'Laura', text: 'confirmen'},
+	{author: 'Juan', text: 'si'},
+	{author: 'Pedro', text: 'si claro'}
+])
+
+3) 
+
+db.productos.find()
+db.mensajes.find()
+
+4)
+
+db.productos.estimatedDocumentCount()
+db.mensajes.estimatedDocumentCount()
+
+5)
+a)
+
+db.productos.insertOne( {title: 'Acuarela', price: 1200} )
+
+b)
+
+i)
+
+db.productos.find({price:{$lt:1000}})
+
+ii)
+
+db.productos.find({price:{$gte:1000,$lte:3000}})
+
+iii)
+
+db.productos.find({price:{$gt:3000}})
+
+iv)
+
+db.productos.find({},{"title":1}).skip(2).limit(1).sort({price:1})
+
+c)
+
+db.productos.updateMany({},{$set: {stock: 100}})
+
+d)
+
+db.productos.updateMany({price:{$gte:4000}},{$set: {stock:0}})
+
+e)
+
+db.productos.deleteMany({price:{$lt:1000}})
+
+6)
+
+db.createUser(
+ {
+ user: "pepe",
+ pwd: "asd456",
+ roles: [
+ { role: "read", db: "ecommerce" }
+ ]
+ }
+)
+-------------
+Microsoft Windows [Versión 10.0.19044.1889]
+(c) Microsoft Corporation. Todos los derechos reservados.
+
+C:\Users\Sabrina>mongosh -u pepe
+Enter password: ******
+Current Mongosh Log ID: 6322660ea437a666d685ad3d
+Connecting to:          mongodb://<credentials>@127.0.0.1:27017/?directConnection=true&serverSelectionTimeoutMS=2000&appName=mongosh+1.5.4
+Using MongoDB:          6.0.1
+Using Mongosh:          1.5.4
+
+For mongosh info see: https://docs.mongodb.com/mongodb-shell/
+
+test> use ecommerce
+switched to db ecommerce
+ecommerce> db.mensajes.insertOne({author:"James", text: "Probando el user lector"})
+MongoServerError: not authorized on ecommerce to execute command { insert: "mensajes", documents: [ { author: "James", text: "Probando el user lector", _id: ObjectId('6322666a028748c9d310e921') } ], ordered: true, lsid: { id: UUID("774e1ab2-d452-401b-a065-07a247927e1c") }, $db: "ecommerce" }
+ecommerce>
