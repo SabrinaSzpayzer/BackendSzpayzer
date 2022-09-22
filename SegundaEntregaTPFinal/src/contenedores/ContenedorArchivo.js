@@ -66,7 +66,8 @@ class ContenedorArchivo {
     async putProductById (code, title, description, price, thumbnail, stock, id, timestamp) {
         const products = await this.getAll()
         const productPos = id - 1
-        products[productPos] = {code: code, title: title, description: description, price: price, thumbnail: thumbnail, stock: stock, id: id, timestamp: timestamp}
+        const timestampNow = Date.now()
+        products[productPos] = {code: code, title: title, description: description, price: price, thumbnail: thumbnail, stock: stock, id: id, timestamp: timestampNow}
 
         try {
             await fs.writeFile(this.archivo, JSON.stringify(products))
@@ -118,4 +119,4 @@ class ContenedorArchivo {
     }
 }
 
-module.exports = ContenedorArchivo;
+export default ContenedorArchivo;

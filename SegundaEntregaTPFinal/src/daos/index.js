@@ -1,7 +1,9 @@
+import config from '../config.js'
+
 let productosDao
 let carritosDao
 
-switch (process.env.PERS) {
+switch (config.selectedDB) {
     case 'json':
         const { default: ProductosDaoArchivo } = await import('./productos/ProductosDaoArchivo.js')
         const { default: CarritosDaoArchivo } = await import('./carritos/CarritosDaoArchivo.js')

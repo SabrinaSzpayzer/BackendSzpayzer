@@ -1,4 +1,10 @@
-import express from 'express'
+import express from 'express';
+import path from 'path';
+import url from 'url';
+import config from './config.js';
+
+const __filename = url.fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const { Router } = express;
 
@@ -78,8 +84,7 @@ routerProducts.post('/', soloAdmins, async (req, res) => {
 routerProducts.put('/:id', soloAdmins, async (req, res) => {
     const { id } = req.params;
     const updatedProduct = req.body;
-    const timestamp = Date.now();
-    const putProduct = await product.putProductById(updatedProduct.code, updatedProduct.title, updatedProduct.description, updatedProduct.price, updatedProduct.thumbnail, updatedProduct.stock, id, timestamp);
+    const putProduct = await product.putProductById(updatedProduct.code, updatedProduct.title, updatedProduct.description, updatedProduct.price, updatedProduct.thumbnail, updatedProduct.stock, id);
     res.json(putProduct);
 })
 
@@ -101,7 +106,7 @@ routerCarritos.get('/', async (req, res) => {
     if (allCarritos.length > 0) {
         res.json(allCarritos);
     } else {
-        res.send("Productos no encontrados");
+        res.send("Carritos no encontrados");
     }
 })
 
@@ -118,24 +123,38 @@ routerCarritos.get('/:id/productos', async (req, res) => {
 })
 
 routerCarritos.post('/', async (req, res) => {
-    const productos = [];
+    const productos = req.body;
     const addCarrito = await carrito.saveCarrito(productos);
     res.json(addCarrito);
 })
 
 routerCarritos.post('/:id/productos', async (req, res) => {
-    const { id } = req.params;   
-    const carritoById = await carrito.getById(id);   
-    const arrayProdCarrito = carritoById.productos;
-    const newProductId = req.body;
-    const newProduct = await product.getById(newProductId.id);
-    arrayProdCarrito.push(newProduct);  
-    const carritos = await carrito.getAll()
-    const carritoPos = id - 1
-    const timestampNow = Date.now()
-    carritos[carritoPos] = {id: id, timestamp: timestampNow, productos: arrayProdCarrito}
-    const addProduct = carrito.updateCarrito(carritos)
-    res.send(addProduct);
+    if ( config.selectedDB == 'json') {
+        const { id } = req.params;   
+        const carritoById = await carrito.getById(id);   
+        const arrayProdCarrito = carritoById.productos;
+        const newProductId = req.body;
+        const newProduct = await product.getById(newProductId.id);
+        arrayProdCarrito.push(newProduct);  
+        const carritos = await carrito.getAll()
+        const carritoPos = id - 1
+        const timestampNow = Date.now()
+        carritos[carritoPos] = {id: id, timestamp: timestampNow, productos: arrayProdCarrito}
+        const addProduct = carrito.updateCarrito(carritos)
+        res.send(addProduct);
+    } else if ( config.selectedDB == 'mongodb') {
+        const { id } = req.params;   
+        const newProduct = req.body;
+        const timestampNow = Date.now()
+        await carrito.updateCarrito(id, {code: newProduct.code, title: newProduct.title, description: newProduct.description, price: newProduct.price, thumbnail: newProduct.thumbnail, stock: newProduct.stock, _id: newProduct._id, timestamp: timestampNow})
+        res.send("Producto agregado al carrito");
+    } else {
+        const { id } = req.params;   
+        const newProduct = req.body;
+        const timestampNow = Date.now()
+        await carrito.updateCarrito(id, {code: newProduct.code, title: newProduct.title, description: newProduct.description, price: newProduct.price, thumbnail: newProduct.thumbnail, stock: newProduct.stock, id: newProduct.id, timestamp: timestampNow})
+        res.send("Producto agregado al carrito");
+    }
 })
 
 routerCarritos.delete('/:id', async (req, res) => {
@@ -156,7 +175,7 @@ routerCarritos.delete('/:id/productos/:id_Prod', async (req, res) => {
 })
 
 routerCarritos.get('/prueba', async (req, res) => {
-    res.sendFile('carrito.html', { root: __dirname + "/public"});
+    res.sendFile('carrito.html', { root: __dirname + "../../public"});
 });
 
 // Routers
