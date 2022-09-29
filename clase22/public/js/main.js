@@ -1,8 +1,4 @@
 const socket = io.connect();
-/* import normalizr from 'normalizr';
-const normalize = normalizr.normalize;
-const denormalize = normalizr.denormalize;
-const schema = normalizr.schema; */
 
 // Tabla Productos
 
@@ -45,6 +41,21 @@ socket.on('productos', async productos => {
 
 // Chat
 
+/* --------------------- DESNORMALIZACIÓN DE MENSAJES ---------------------------- */
+// Definimos un esquema de autor
+
+const schemaAuthor =  new normalizr.schema.Entity('author',{},{idAttribute: 'email'});
+
+// Definimos un esquema de mensaje
+
+const messageSchema = new normalizr.schema.Entity('post', { author: schemaAuthor }, { idAttribute: 'text' })
+
+// Definimos un esquema de posts
+
+const postSchema = new normalizr.schema.Entity('posts', { messages: [messageSchema] })
+
+/* ----------------------------------------------------------------------------- */
+
 function render(data) {
     const html = data.map(elem => {
         return (`<div><img src="${elem.author.avatar}" width=25px> ${elem.author.alias}: ${elem.text}</>`)
@@ -69,6 +80,12 @@ function addMessage (e) {
     return false;
 }
 
-socket.on('messages', data => {
-    render(data);
+socket.on('messages', messagesN => {
+    const messagesD = normalizr.denormalize(messagesN.result, postSchema, messagesN.entities);
+    console.log(messagesD.messages)
+    const messagesNlength = JSON.stringify(messagesN).length;
+    const messagesDlength = JSON.stringify(messagesD).length;
+    const porcentajeC = parseInt((messagesNlength / messagesDlength)*100);
+    render(messagesD.messages);
+    document.getElementById('compresion-info').innerText = porcentajeC
 })

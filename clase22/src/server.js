@@ -115,22 +115,23 @@ routerProducts.delete('/', async (req, res) => {
 
 // Definimos un esquema de autor
 
-const authorSchema =  new schema.Entity('author',{},{idAttribute: 'email'});
+const schemaAuthor =  new schema.Entity('author',{},{idAttribute: 'email'});
 
 // Definimos un esquema de mensaje
 
-const messageSchema = new schema.Entity('text');
+const messageSchema = new schema.Entity('post', { author: schemaAuthor }, { idAttribute: 'text' })
 
 // Definimos un esquema de posts
 
-const postSchema = new schema.Entity('posts', {
-    author: authorSchema,
-    text: messageSchema
-})
+const postSchema = new schema.Entity('posts', { messages: [messageSchema] })
+
+const normalizarMensajes = (mensajesConId) => normalize(mensajesConId, postSchema)
+
+//--------------------------------------------
 
 async function listarMensajesNormalizados() {
     const messages = await historial.getAll();
-    const normalizedData = normalize(messages, postSchema);
+    const normalizedData = normalizarMensajes({ id: 'messages', messages });
     console.log(util.inspect(normalizedData, false, 12, true));
     return normalizedData
 }
@@ -155,15 +156,13 @@ io.on('connection', async socket => {
     // Mensajes Chat
 
     const messages = await historial.getAll();
-    await listarMensajesNormalizados();
     
-    socket.emit('messages', messages);
+    socket.emit('messages', await listarMensajesNormalizados());
     
     socket.on('new-message', async data => {
         messages.push(data);
-        historial.save(data);
-        io.sockets.emit('messages', messages);
-        await listarMensajesNormalizados();
+        await historial.save(data);
+        io.sockets.emit('messages', await listarMensajesNormalizados());
     })
 })
 
