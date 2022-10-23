@@ -316,13 +316,13 @@ app.get('/info', (req, res) => {
 });
 
 // /api/randoms
-app.get('/api/randoms', (req, res) => {
+app.get('/api/randoms', async (req, res) => {
+    const cantidad = req.query.cantidad ?? 100000;
+    console.log(cantidad);
     const computo = fork('./src/randomCalc.js');
-    const { cantidad } = req.query;
-    console.log(typeof(cantidad))
     computo.send(Number(cantidad));
     computo.on('message', result => {
-        res.end(`Los números random son: ${result}`)
+        res.send(result)
     })
 });
 
