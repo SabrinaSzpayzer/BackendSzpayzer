@@ -27,7 +27,10 @@ import cluster from 'cluster';
 import os from 'os';
 const numCpu = os.cpus().length;
 import compression from 'compression';
-import logger from './logger.js'
+import logger from './logger.js';
+import sendEmail from '../scripts/email.js';
+import sendWhatsapp from '../scripts/whatsapp.js';
+import sendSms from '../scripts/sms.js';
 
 const { Router } = express;
 
@@ -63,13 +66,109 @@ const __dirname = path.dirname(__filename);
 
 app.engine(
     'hbs',
-    handlebars({
+    handlebars.engine({
         extname: '.hbs',
         defaultLayout: 'index.hbs',
         layoutsDir: __dirname + '../../public/views/layouts',
         partialsDir: __dirname + '../../public/views/partials'
     })
 )
+
+// Sesiones
+
+passport.use('signup', new LocalStrategy({
+    passReqToCallback: true
+},
+    (req, username, password, done) => {
+        User.findOne({ 'username': username }, (err, user) => {
+            if (err) {
+                return done(err);
+            };
+
+            if (user) {
+                return done(null, false);
+            }
+
+            const newUser = {
+                username: username,
+                password: createHash(password),
+                firstName: req.body.firstName,
+                lastName: req.body.lastName,
+                address: req.body.address,
+                age: req.body.age,
+                phone: req.body.phone
+            };
+
+            User.create(newUser, (err, userWithId) => {
+                if (err) {
+                    return done(err);
+                }
+
+                let emailBody = `<div><p> New user created: ${newUser.firstName} ${newUser.lastName}</p><p>Email/Username: ${username}</p></div>`
+                sendEmail("New user created", "", emailBody)
+                
+                return done(null, userWithId);
+            })
+        });
+    }
+));
+
+passport.use('login', new LocalStrategy(
+    (username, password, done) => {
+        User.findOne({ username }, (err, user) => {
+            if (err) {
+                return done(err);
+            }
+
+            if (!user) {
+                return done(null, false);
+            }
+
+            if (!isValidPassword(user, password)) {
+                return done(null, false);
+            }
+
+            return done(null, user);
+        })
+    }
+));
+
+passport.serializeUser((user, done) => {
+    done(null, user._id);
+});
+
+passport.deserializeUser((id, done) => {
+    User.findById(id, done);
+});
+
+function createHash(password) {
+    return bCrypt.hashSync(password, bCrypt.genSaltSync(10), null);
+}
+
+function isValidPassword(user, password) {
+    return bCrypt.compareSync(password, user.password);
+}
+
+const advancedOptions = { useNewUrlParser: true, useUnifiedTopology: true };
+
+const mongourl = config.mongodb.cnxStr;
+
+app.use(session({
+    store: MongoStore.create({ 
+        mongoUrl: mongourl,
+        mongoOptions: advancedOptions
+    }),
+    secret: 'secret',
+    resave: false,
+    saveUninitialized: false,
+    rolling: true,
+    cookie: {
+        maxAge: config.TIEMPO_EXPIRACION
+    }
+}));
+
+app.use(passport.initialize());
+app.use(passport.session());
 
 // api Chat
 
@@ -164,10 +263,40 @@ routerCarritos.post('/:id/productos', async (req, res) => {
     const newProductId = req.body;
     const allProducts = await product.getAll();
     let newProduct = allProducts.filter(prods => prods._id == newProductId._id)
-    newProduct = newProduct[0]
     const timestampNow = Date.now()
-    await carrito.updateCarrito(id, {code: newProduct.code, title: newProduct.title, description: newProduct.description, price: newProduct.price, thumbnail: newProduct.thumbnail, stock: newProduct.stock, _id: newProductId._id, timestamp: timestampNow})
+    await carrito.updateCarrito(id, {code: newProduct[0].code, title: newProduct[0].title, description: newProduct[0].description, price: newProduct[0].price, thumbnail: newProduct[0].thumbnail, stock: newProduct[0].stock, _id: newProductId._id, timestamp: timestampNow})
     res.send("Producto agregado al carrito");
+})
+
+routerCarritos.post('/:id/compra', async (req, res) => {
+    const { id } = req.params;
+    const { user } = req;
+    console.log(user)
+    const productsCompra = await carrito.getById(id);
+    let confirmation = `<h4 class="text-center">Products in cart: </h4>
+        <tr>
+        <th>Código</th>
+        <th>Nombre</th>
+        <th>Precio</th>
+        </tr>`;
+
+    let mobileConfirmation = "New order by " + req.user.username + " - Products in cart: ";
+
+    for (const prods of productsCompra) {          
+        confirmation += `<tr>
+                        <td>${prods._id}></td>
+                        <td>${prods.title}</td>
+                        <td>$${prods.price}</td>
+                        </tr>`
+
+        mobileConfirmation += `Product: ${prods.title} Price: ${prods.price}`
+    }
+    
+    sendEmail("New order created by " + req.user.firstName + " " + req.user.lastName + " " + req.user.username + " .", "Order confirmed. Details: ", confirmation )
+    
+    sendWhatsapp(mobileConfirmation)
+
+    sendSms("+" + req.user.phone)
 })
 
 routerCarritos.delete('/:id', async (req, res) => {
@@ -186,11 +315,6 @@ routerCarritos.delete('/:id/productos/:id_Prod', async (req, res) => {
     const deleteProd = await carrito.deleteProdCarrito(id, id_Prod);
     res.send(deleteProd);
 })
-
-routerCarritos.get('/prueba', async (req, res) => {
-    res.sendFile('carrito.html', { root: __dirname + "../../public"});
-});
-
 
 //--------------------------------------------
 // NORMALIZACIÓN DE MENSAJES
@@ -248,96 +372,6 @@ io.on('connection', async socket => {
     })
 })
 
-// Sesiones
-
-passport.use('signup', new LocalStrategy({
-    passReqToCallback: true
-},
-    (req, username, password, done) => {
-        User.findOne({ 'username': username }, (err, user) => {
-            if (err) {
-                return done(err);
-            };
-
-            if (user) {
-                return done(null, false);
-            }
-
-            const newUser = {
-                username: username,
-                password: createHash(password),
-                email: req.body.email,
-                firstName: req.body.firstName,
-                lastName: req.body.lastName
-            };
-
-            User.create(newUser, (err, userWithId) => {
-                if (err) {
-                    return done(err);
-                }
-                return done(null, userWithId);
-            })
-        });
-    }
-));
-
-passport.use('login', new LocalStrategy(
-    (username, password, done) => {
-        User.findOne({ username }, (err, user) => {
-            if (err) {
-                return done(err);
-            }
-
-            if (!user) {
-                return done(null, false);
-            }
-
-            if (!isValidPassword(user, password)) {
-                return done(null, false);
-            }
-
-            return done(null, user);
-        })
-    }
-));
-
-passport.serializeUser((user, done) => {
-    done(null, user._id);
-});
-
-passport.deserializeUser((id, done) => {
-    User.findById(id, done);
-});
-
-function createHash(password) {
-    return bCrypt.hashSync(password, bCrypt.genSaltSync(10), null);
-}
-
-function isValidPassword(user, password) {
-    return bCrypt.compareSync(password, user.password);
-}
-
-const advancedOptions = { useNewUrlParser: true, useUnifiedTopology: true };
-
-const mongourl = config.mongodb.cnxStr;
-
-app.use(session({
-    store: MongoStore.create({ 
-        mongoUrl: mongourl,
-        mongoOptions: advancedOptions
-    }),
-    secret: 'secret',
-    resave: false,
-    saveUninitialized: false,
-    rolling: true,
-    cookie: {
-        maxAge: config.TIEMPO_EXPIRACION
-    }
-}));
-
-app.use(passport.initialize());
-app.use(passport.session());
-
 //LOGIN
 app.get('/login', routes.getLogin);
 app.post('/login', passport.authenticate('login', {
@@ -365,6 +399,11 @@ app.get('/', checkAuthentication, (req, res) => {
     const { user } = req;
     res.render('home', {nombre: user.firstName});
 });
+
+app.get('/carrito', checkAuthentication, (req, res) => {
+    res.sendFile('carrito.html', { root: __dirname + "../../public"});
+});
+
 
 //LOGOUT
 app.get('/logout', routes.getLogout);

@@ -19,7 +19,7 @@ class ContenedorMongoDb {
 
     async getById (id) {
         try {
-            const byId = await this.coleccion.find({_id:id})
+            const byId = await this.coleccion.findOne({_id:id})
             return byId 
         } catch (error) {
             console.log(error)

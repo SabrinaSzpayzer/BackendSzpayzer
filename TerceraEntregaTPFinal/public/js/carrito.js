@@ -11,6 +11,11 @@ const carritosApi = {
         return fetch('/carritos', options)
             .then(data => data.json())
     },
+    crearCompra: (idCarrito) => {
+        const options = { method: "POST" }
+        return fetch(`/carritos/${idCarrito}/compra`, options)
+            .then(data => data.json())
+    },
     getIds: () => {
         return fetch('/carritos')
             .then(data => data.json())
@@ -61,6 +66,11 @@ document.getElementById('btnCrearCarrito').addEventListener('click', () => {
                 combo.dispatchEvent(new Event('change'));
             })
         })
+})
+
+document.getElementById('btnFinalizarCompra').addEventListener('click', () => {
+    const idCarrito = document.getElementById('comboCarritos').value
+    carritosApi.crearCompra(idCarrito)
 })
 
 document.getElementById('comboCarritos').addEventListener('change', () => {
