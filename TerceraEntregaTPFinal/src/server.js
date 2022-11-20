@@ -6,8 +6,6 @@ import config from './config.js';
 import routes from './routes.js';
 import controllersdb from './controllersdb.js';
 import User from './models.js';
-import faker from 'faker';
-faker.locale = 'es';
 import normalizr from 'normalizr';
 const normalize = normalizr.normalize;
 const denormalize = normalizr.denormalize;
@@ -31,6 +29,7 @@ import logger from './logger.js';
 import sendEmail from '../scripts/email.js';
 import sendWhatsapp from '../scripts/whatsapp.js';
 import sendSms from '../scripts/sms.js';
+import multer from 'multer';
 
 const { Router } = express;
 
@@ -38,41 +37,19 @@ const app = express();
 const httpServer = new HttpServer(app);
 const io = new Socket(httpServer);
 
-// Routers
+// Multer setup
 
-const routerProducts = new Router();
-const routerCarritos = new Router();
+const storage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        cb(null, "./public/photos");
+    },
 
-app.use('/productos', routerProducts);
-app.use('/carritos', routerCarritos);
+    filename: (req, file, cb) => {
+        cb(null, Date.now() + file.originalname);
+    }
+});
 
-routerProducts.use(express.json());
-routerProducts.use(express.urlencoded({ extended: true }));
-
-routerCarritos.use(express.json());
-routerCarritos.use(express.urlencoded({ extended: true }));
-
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-app.use(express.static('public'));
-
-// Handlebars
-
-import path from 'path';
-import url from 'url';
-
-const __filename = url.fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-app.engine(
-    'hbs',
-    handlebars.engine({
-        extname: '.hbs',
-        defaultLayout: 'index.hbs',
-        layoutsDir: __dirname + '../../public/views/layouts',
-        partialsDir: __dirname + '../../public/views/partials'
-    })
-)
+const upload = multer({ storage: storage })
 
 // Sesiones
 
@@ -96,7 +73,8 @@ passport.use('signup', new LocalStrategy({
                 lastName: req.body.lastName,
                 address: req.body.address,
                 age: req.body.age,
-                phone: req.body.phone
+                phone: req.body.phone,
+                photo: req.file.filename
             };
 
             User.create(newUser, (err, userWithId) => {
@@ -170,6 +148,45 @@ app.use(session({
 app.use(passport.initialize());
 app.use(passport.session());
 
+// Handlebars
+
+import path from 'path';
+import url from 'url';
+
+const __filename = url.fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+app.engine(
+    'hbs',
+    handlebars.engine({
+        extname: '.hbs',
+        defaultLayout: 'index.hbs',
+        layoutsDir: __dirname + '../../public/views/layouts',
+        partialsDir: __dirname + '../../public/views/partials'
+    })
+)
+
+app.set('view engine', 'hbs');
+app.set('views', './public/views');
+
+// Routers
+
+const routerProducts = new Router();
+const routerCarritos = new Router();
+
+app.use('/productos', routerProducts);
+app.use('/carritos', routerCarritos);
+
+routerProducts.use(express.json());
+routerProducts.use(express.urlencoded({ extended: true }));
+
+routerCarritos.use(express.json());
+routerCarritos.use(express.urlencoded({ extended: true }));
+
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(express.static('public'));
+
 // api Chat
 
 import Chat from '../api/Chat.js';
@@ -188,9 +205,8 @@ routerProducts.get('/', async (req, res) => {
     const allProducts = await product.getAll();
     if (allProducts.length > 0) {
         res.json(allProducts);
-        res.render('main', {displayProduct: allProducts, listExists: true});
     } else {
-        res.render('main', {listExists: false});
+        logger.error('Error en la carga de productos')
     }
 })
 
@@ -270,29 +286,27 @@ routerCarritos.post('/:id/productos', async (req, res) => {
 
 routerCarritos.post('/:id/compra', async (req, res) => {
     const { id } = req.params;
-    const { user } = req;
-    console.log(user)
-    const productsCompra = await carrito.getById(id);
-    let confirmation = `<h4 class="text-center">Products in cart: </h4>
+    const carritoCompra = await carrito.getById(id);
+    let confirmation = `<p>Productos en el carrito: </p>
         <tr>
         <th>Código</th>
         <th>Nombre</th>
         <th>Precio</th>
         </tr>`;
 
-    let mobileConfirmation = "New order by " + req.user.username + " - Products in cart: ";
+    let mobileConfirmation = "Nueva orden de compra de " + req.user.username + " - Productos en el carrito: ";
 
-    for (const prods of productsCompra) {          
+    for (const prods of carritoCompra.productos) {          
         confirmation += `<tr>
                         <td>${prods._id}></td>
                         <td>${prods.title}</td>
                         <td>$${prods.price}</td>
                         </tr>`
 
-        mobileConfirmation += `Product: ${prods.title} Price: ${prods.price}`
+        mobileConfirmation += `Producto: ${prods.title} Precio: ${prods.price}`
     }
     
-    sendEmail("New order created by " + req.user.firstName + " " + req.user.lastName + " " + req.user.username + " .", "Order confirmed. Details: ", confirmation )
+    sendEmail("Nueva orden de compra de " + req.user.firstName + " " + req.user.lastName + " " + req.user.username + " .", "Productos en el carrito: ", confirmation)
     
     sendWhatsapp(mobileConfirmation)
 
@@ -381,7 +395,7 @@ app.get('/faillogin', routes.getFailLogin);
 
 //SIGNUP
 app.get('/signup', routes.getSignUp);
-app.post('/signup', passport.authenticate('signup', {
+app.post('/signup', upload.single("photo"), passport.authenticate('signup', {
     failureRedirect: '/failsignup'
 }), routes.postSignup);
 app.get('/failsignup', routes.getFailsignup);
@@ -397,7 +411,7 @@ function checkAuthentication(req, res, next) {
 
 app.get('/', checkAuthentication, (req, res) => {
     const { user } = req;
-    res.render('home', {nombre: user.firstName});
+    res.render('home', {nombre: user.firstName, photo: req.user.photo});
 });
 
 app.get('/carrito', checkAuthentication, (req, res) => {
@@ -419,12 +433,6 @@ app.get('/info', compression(), (req, res) => {
     const directorio = process.cwd();
     res.render('info', {argumentos: argumentos, plataforma: plataforma, versionNode: versionNode, memoria: memoria, path: path, proceso: proceso, directorio: directorio, numCpu: numCpu});
 });
-
-
-// Views
-
-app.set('view engine', 'hbs');
-app.set('views', './public/views');
 
 // Server
 

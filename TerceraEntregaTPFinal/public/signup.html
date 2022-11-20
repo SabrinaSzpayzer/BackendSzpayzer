@@ -18,7 +18,7 @@
 
       <h1>SIGNUP</h1>
       <br>
-      <form class="form" role="form" action="/signup" method="post" autocomplete="off">
+      <form class="form" role="form" action="/signup" method="post" autocomplete="off" enctype="multipart/form-data">
 
         <div class="form-group">
           <input name='username' placeholder="Email" class="form-control" type="text" required>
@@ -47,6 +47,10 @@
 
         <div class="form-group">
           <input name='phone' placeholder="Phone number" class="form-control" type="text" required>
+        </div>
+
+        <div class="form-group">
+          <input name='photo' placeholder="Photo" class="form-control" type="file" required>
         </div>
 
         <div class="form-group">
