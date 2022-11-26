@@ -3,9 +3,8 @@ import handlebars from 'express-handlebars';
 import { Server as HttpServer } from 'http';
 import { Server as Socket } from 'socket.io';
 import config from './config.js';
-import routes from './routes.js';
+import { routerProducts } from './routes.js';
 import controllersdb from './controllersdb.js';
-import User from './models.js';
 import faker from 'faker';
 faker.locale = 'es';
 import normalizr from 'normalizr';
@@ -15,10 +14,6 @@ const schema = normalizr.schema;
 import util from 'util';
 import session from 'express-session';
 import MongoStore from 'connect-mongo';
-import passport from 'passport';
-import passportlocal from 'passport-local';
-const LocalStrategy = passportlocal.Strategy;
-import bCrypt from 'bcrypt';
 import dotenv from 'dotenv';
 dotenv.config();
 import minimist from 'minimist';
@@ -27,9 +22,11 @@ import cluster from 'cluster';
 import os from 'os';
 const numCpu = os.cpus().length;
 import compression from 'compression';
-import logger from './logger.js'
+import logger from './logger.js';
+import passport from './passport.js';
+import pagesController from './controllers/pagesController.js';
 
-const { Router } = express;
+//const { Router } = express;
 
 const app = express();
 const httpServer = new HttpServer(app);
@@ -37,7 +34,7 @@ const io = new Socket(httpServer);
 
 // Routers
 
-const routerProducts = new Router();
+// const routerProducts = new Router();
 app.use('/productos', routerProducts);
 routerProducts.use(express.json());
 routerProducts.use(express.urlencoded({ extended: true }));
@@ -83,52 +80,6 @@ app.get('/api/productos-test', async (req, res) => {
     } else {
         res.render('main', {listExists: false});
     }
-})
-
-// Router products
-
-routerProducts.get('/', async (req, res) => {
-    const allProducts = await product.getAll();
-    if (allProducts.length > 0) {
-        res.render('main', {displayProduct: allProducts, listExists: true});
-    } else {
-        res.render('main', {listExists: false});
-    }
-})
-
-routerProducts.get('/:id', async (req, res) => {
-    const { id } = req.params;
-    const productById = await product.getById(id);
-    res.send(productById);
-})
-
-routerProducts.post('/', async (req, res) => {
-    const newProduct = req.body;
-    const addProduct = await product.save(newProduct.title, newProduct.price, newProduct.thumbnail);
-    res.json(addProduct);
-})
-
-routerProducts.put('/:id', async (req, res) => {
-    const { id } = req.params;
-    const updatedProduct = req.body;
-    const putProduct = await product.putById(id, updatedProduct.title, updatedProduct.price, updatedProduct.thumbnail);
-    res.json(putProduct);
-})
-
-routerProducts.delete('/:id', async (req, res) => {
-    const { id } = req.params;
-    const deleteProductById = await product.deleteById(id);
-    const allProducts = await product.getAll();
-    if ( id > allProducts.length ) {
-        res.send("Producto no encontrado");
-    } else {
-        res.send(deleteProductById);
-    }
-})
-
-routerProducts.delete('/', async (req, res) => {
-    const deleteAllProd = await product.deleteAll();
-    res.send(deleteAllProd)
 })
 
 //--------------------------------------------
@@ -189,73 +140,6 @@ io.on('connection', async socket => {
 
 // Sesiones
 
-passport.use('signup', new LocalStrategy({
-    passReqToCallback: true
-},
-    (req, username, password, done) => {
-        User.findOne({ 'username': username }, (err, user) => {
-            if (err) {
-                return done(err);
-            };
-
-            if (user) {
-                return done(null, false);
-            }
-
-            const newUser = {
-                username: username,
-                password: createHash(password),
-                email: req.body.email,
-                firstName: req.body.firstName,
-                lastName: req.body.lastName
-            };
-
-            User.create(newUser, (err, userWithId) => {
-                if (err) {
-                    return done(err);
-                }
-                return done(null, userWithId);
-            })
-        });
-    }
-));
-
-passport.use('login', new LocalStrategy(
-    (username, password, done) => {
-        User.findOne({ username }, (err, user) => {
-            if (err) {
-                return done(err);
-            }
-
-            if (!user) {
-                return done(null, false);
-            }
-
-            if (!isValidPassword(user, password)) {
-                return done(null, false);
-            }
-
-            return done(null, user);
-        })
-    }
-));
-
-passport.serializeUser((user, done) => {
-    done(null, user._id);
-});
-
-passport.deserializeUser((id, done) => {
-    User.findById(id, done);
-});
-
-function createHash(password) {
-    return bCrypt.hashSync(password, bCrypt.genSaltSync(10), null);
-}
-
-function isValidPassword(user, password) {
-    return bCrypt.compareSync(password, user.password);
-}
-
 const advancedOptions = { useNewUrlParser: true, useUnifiedTopology: true };
 
 const mongourl = process.env.MONGOURL;
@@ -278,18 +162,18 @@ app.use(passport.initialize());
 app.use(passport.session());
 
 //LOGIN
-app.get('/login', routes.getLogin);
+app.get('/login', pagesController.getLogin);
 app.post('/login', passport.authenticate('login', {
     failureRedirect: '/faillogin'
-}), routes.postLogin);
-app.get('/faillogin', routes.getFailLogin);
+}), pagesController.postLogin);
+app.get('/faillogin', pagesController.getFailLogin);
 
 //SIGNUP
-app.get('/signup', routes.getSignUp);
+app.get('/signup', pagesController.getSignUp);
 app.post('/signup', passport.authenticate('signup', {
     failureRedirect: '/failsignup'
-}), routes.postSignup);
-app.get('/failsignup', routes.getFailsignup);
+}), pagesController.postSignup);
+app.get('/failsignup', pagesController.getFailsignup);
 
 //Home
 function checkAuthentication(req, res, next) {
@@ -306,7 +190,7 @@ app.get('/', checkAuthentication, (req, res) => {
 });
 
 //LOGOUT
-app.get('/logout', routes.getLogout);
+app.get('/logout', pagesController.getLogout);
 
 //INFO
 app.get('/info', compression(), (req, res) => {
@@ -318,16 +202,6 @@ app.get('/info', compression(), (req, res) => {
     const proceso = process.pid;
     const directorio = process.cwd();
     res.render('info', {argumentos: argumentos, plataforma: plataforma, versionNode: versionNode, memoria: memoria, path: path, proceso: proceso, directorio: directorio, numCpu: numCpu});
-});
-
-// /api/randoms
-app.get('/api/randoms', async (req, res) => {
-    const cantidad = req.query.cantidad ?? 100000;
-    const computo = fork('./src/randomCalc.js');
-    computo.send(Number(cantidad));
-    computo.on('message', result => {
-        res.send(result)
-    })
 });
 
 // Views

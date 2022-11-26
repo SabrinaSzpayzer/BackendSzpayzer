@@ -9,12 +9,12 @@ function getLogin(req, res) {
         res.redirect('/');
     }
     else {
-        res.sendFile('login.html', { root: __dirname + "../../public"});
+        res.sendFile('login.html', { root: __dirname + "../../../public"});
     }
 }
 
 function getSignUp(req, res) {
-    res.sendFile('signup.html', { root: __dirname + "../../public"});
+    res.sendFile('signup.html', { root: __dirname + "../../../public"});
 }
 
 function postLogin(req, res) {

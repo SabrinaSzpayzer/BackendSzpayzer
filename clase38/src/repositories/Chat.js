@@ -1,5 +1,5 @@
 import { promises as fs } from 'fs';
-import logger from '../src/logger.js'
+import logger from '../../src/logger.js'
 
 class Chat {
     constructor (archivo) {

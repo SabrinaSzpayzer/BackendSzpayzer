@@ -60,7 +60,7 @@ async function deleteById (req, res) {
     }
 }
 
-async function deleteAll (req, res) {
+async function deleteAllP (req, res) {
     const deleteAllProd = await deleteAll();
     res.send(deleteAllProd)
 }
@@ -72,5 +72,5 @@ export {
     post,
     putById,
     deleteById,
-    deleteAll
+    deleteAllP
 }
