@@ -11,6 +11,7 @@ import {
 // Productos test
 
 async function productosTest () {
+    ctx.response.status = 200
     const allProducts = await getProductosTest()
     ctx.body = {
         status: 'success',
@@ -21,6 +22,7 @@ async function productosTest () {
 // Router products
 
 async function getAll () {
+    ctx.response.status = 200
     const allProducts = await getAllProducts();
     ctx.body = {
         status: 'success',
@@ -29,8 +31,8 @@ async function getAll () {
 }
 
 async function getById () {
-    const { id } = ctx.params;
-    const productById = await getProductById(id);
+    ctx.response.status = 200
+    const productById = await getProductById(ctx.params.id);
     ctx.body = {
         status: 'success',
         data: productById
@@ -38,37 +40,42 @@ async function getById () {
 }
 
 async function post () {
-    const newProduct = ctx.request.body;
-    const addProduct = await postProduct(newProduct.title, newProduct.price, newProduct.thumbnail);
+    ctx.response.status = 200
+    const addProduct = await postProduct(ctx.request.body.title, ctx.request.body.price, ctx.request.body.thumbnail);
     ctx.body = {
         status: 'success',
+        data: addProduct,
         message: 'New product added'
     }
 }
 
 async function putById () {
-    const { id } = ctx.params;
-    const updatedProduct = ctx.request.body;
-    const putProduct = await putProductById(id, updatedProduct.title, updatedProduct.price, updatedProduct.thumbnail);
+    ctx.response.status = 200
+    const putProduct = await putProductById(ctx.params.id, ctx.request.body.title, ctx.request.body.price, ctx.request.body.thumbnail);
     ctx.body = {
         status: 'success',
+        data: putProduct,
         message: 'Product updated'
     }
 }
 
 async function deleteById () {
+    ctx.response.status = 200
     const { id } = ctx.params;
     const deleteById = await deleteProductById(id);
     ctx.body = {
         status: 'success',
+        data: deleteById,
         message: 'Product deleted by id'
     }
 }
 
 async function deleteAllP () {
+    ctx.response.status = 200
     const deleteAllProd = await deleteAll();
     ctx.body = {
         status: 'success',
+        data: deleteAllProd,
         message: 'All products deleted'
     }
 }

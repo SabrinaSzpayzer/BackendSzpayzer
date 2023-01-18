@@ -1,5 +1,3 @@
-import koa from 'koa';
-import { koaBody } from 'koa-body';
 import express, { query } from 'express';
 import handlebars from 'express-handlebars';
 import { Server as HttpServer } from 'http';
@@ -27,6 +25,8 @@ import compression from 'compression';
 import logger from './logger.js';
 import passport from './passport.js';
 import pagesController from './controllers/pagesController.js';
+import koa from 'koa';
+import { koaBody } from 'koa-body';
 
 const app = new koa();
 app.use(koaBody());
